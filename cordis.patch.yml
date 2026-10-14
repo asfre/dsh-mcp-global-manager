@@ -1,0 +1,8 @@
+# dsh-mcp-global-manager bundle patch: inserts this plugin into a profile's
+# layer stack. The host half (lib/index.js) serves the scan / sync / manage API
+# on the loopback web server; the `dsh.client` declaration in package.json makes
+# the web app load lib/client.js, which registers the "MCP 全局管理" entry in the
+# sidebar panel list (right below 远程链接) and its main-area page.
+- insert:
+    - id: mcp-global-manager
+      name: dsh-mcp-global-manager

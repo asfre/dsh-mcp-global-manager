@@ -1,0 +1,78 @@
+{
+  "name": "dsh-mcp-global-manager",
+  "version": "0.1.0",
+  "description": "MCP 全局管理：扫描本机所有工具的 MCP 配置，一键刷新同步差异，双向导入/写回，并在 DSH 侧栏直接增删改 MCP 服务器。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "mcp",
+    "model-context-protocol",
+    "mcp-sync",
+    "mcp-manager",
+    "全局管理"
+  ],
+  "license": "MIT",
+  "author": "asfre",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asfre/dsh-mcp-global-manager.git"
+  },
+  "homepage": "https://github.com/asfre/dsh-mcp-global-manager#readme",
+  "bugs": {
+    "url": "https://github.com/asfre/dsh-mcp-global-manager/issues"
+  },
+  "type": "module",
+  "main": "./lib/index.js",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md"
+  ],
+  "scripts": {
+    "scan": "node tools/cli-scan.mjs",
+    "smoke": "node tools/smoke-client.mjs",
+    "cold": "node tools/cold-start-check.mjs",
+    "test": "node test/run.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.1.6-alpha.1 <0.2.0-0 || >=0.2.0-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh-client-locale": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.2.0-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "^0.2.0-rc.2"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-locale": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-slots": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-host-webserver": {
+      "optional": true
+    }
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    }
+  }
+}

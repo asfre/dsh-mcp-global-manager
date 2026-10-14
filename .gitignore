@@ -1,0 +1,14 @@
+# 依赖与打包产物
+node_modules/
+*.tgz
+
+# 插件运行时自己的数据（永远不进仓库）
+# 真身位置：~/.dsh/mcp-global-manager/（state.json + backups/）
+state.json
+backups/
+
+# 编辑器 / 系统噪音
+.DS_Store
+Thumbs.db
+*.bak
+*.bak-*
