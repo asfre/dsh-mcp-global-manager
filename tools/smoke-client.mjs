@@ -311,6 +311,18 @@ ok(I.validateServerForm({ serverName: 'ok', transport: 'streamable-http', url: '
 ok(I.validateServerForm({ serverName: 'ok', transport: 'stdio', command: 'npx', envText: 'BROKEN' }, { strictName: true }, vt).env !== undefined, '校验：env 缺 = 号被拦');
 ok(Object.keys(I.validateServerForm({ serverName: 'ok', transport: 'streamable-http', url: 'https://h/mcp', headersText: 'Authorization=Bearer x' }, { strictName: true }, vt)).length === 0, '校验：完整的远程表单通过');
 ok(I.validateServerForm({ serverName: '随便什么名字都行', transport: 'stdio', command: 'npx' }, { strictName: false }, vt).serverName === undefined, '校验：写回外部工具时名字规则放宽');
+ok(I.filterRows([{ serverName: 'Pencil', status: 'same', command: 'npx pencil' }, { serverName: 'playwright', status: 'new', command: 'npx' }], '', 'all').length === 2, '筛选：无筛选全返回');
+ok(I.filterRows([{ serverName: 'Pencil', status: 'same' }, { serverName: 'playwright', status: 'new' }], '', 'new').length === 1, '筛选：状态筛选生效');
+ok(I.filterRows([{ serverName: 'Pencil', status: 'same', command: 'x' }], 'pencil', 'all').length === 1, '筛选：搜名字不分大小写');
+ok(I.filterRows([{ serverName: 'a', status: 'same', command: 'pencil-run' }], 'PENCIL', 'all').length === 1, '筛选：命令行也能搜到');
+ok(I.filterRows([{ serverName: 'a', status: 'same' }], 'zzz', 'all').length === 0, '筛选：没命中返回空');
+const cnt = I.countByStatus([{ status: 'new' }, { status: 'gone' }, { status: 'same' }, { status: 'same' }]);
+ok(cnt.total === 4 && cnt.nu === 1 && cnt.gone === 1 && cnt.same === 2 && cnt.changed === 0, '分组统计：各状态计数正确');
+ok(I.isGroupOpen({}, { id: 'g1' }, cnt, false) === true, '折叠：有异常的组默认展开');
+ok(I.isGroupOpen({}, { id: 'g2' }, { total: 3, nu: 0, changed: 0, gone: 0, same: 3 }, false) === false, '折叠：全「同」的组默认收起');
+ok(I.isGroupOpen({ g2: true }, { id: 'g2' }, { total: 3, nu: 0, changed: 0, gone: 0, same: 3 }, false) === true, '折叠：用户手动展开的保持展开');
+ok(I.isGroupOpen({ g1: false }, { id: 'g1' }, cnt, false) === false, '折叠：用户手动收起的异常组保持收起');
+ok(I.isGroupOpen({}, { id: 'g3' }, { total: 3, nu: 0, changed: 0, gone: 0, same: 3 }, true) === true, '折叠：筛选中强制全展开，别把结果藏了');
 ok(/role: "status"/.test(src), '气泡容器带 role="status"（读屏器可感知）');
 ok(/function pushToast/.test(src), 'pushToast 存在（错误改气泡展示）');
 

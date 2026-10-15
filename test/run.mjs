@@ -573,13 +573,14 @@ test('改 env 值算 changed；别的工具单纯重排键顺序不算变化', (
 });
 
 test('源文件消失 → 只标 gone 不自动删，展示信息与采纳关系都从上次快照补回来', () => {
-  const state0 = { ...baseState(), adopted: { [probeKey]: { dshId: rowId('zprobe'), pushBack: false } } };
+  const state0 = { ...baseState(), adopted: { [probeKey]: { dshId: rowId('zprobe'), pushBack: true } } };
   const state1 = commitSnapshot(state0, scanAll({ ...scanCtx, state: state0 }));
   rmSync(probeFile, { force: true });
   const item = findItem(scanAll({ ...scanCtx, state: state1 }), probeKey);
   assert.equal(item.status, 'gone');
   assert.equal(item.sourceMissing, true);
   assert.equal(item.adoptedDshId, rowId('zprobe'), 'gone 的条目要带着采纳关系，面板才知道它是谁');
+  assert.equal(item.pushBack, true, 'gone 行也要带写回授权，不然「允许写回」点了按钮永远不变');
   assert.equal(item.command, 'npx', '展示信息必须从上次快照补回来');
   assert.equal(item.duplicateOf, undefined, 'gone 的条目不参与同名点名');
 });
