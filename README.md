@@ -22,6 +22,48 @@ MCP 配置往往散在 Claude Code / Codex / VS Code / Trae / Kiro / MarsCode / 
 - **仅本机访问 + 同源校验**：API 挂在 `/mcp-global/*`，非 loopback 请求一律 403；带 `Origin` 且与本机 `Host` 不同源的请求（也就是浏览器里别的站点发来的 CSRF）同样 403，只读接口也设防。本地脚本 / curl 不带 `Origin`，照常放行。
 - **写回没有绕过开关**：往别的工具配置里写/删，必须先在条目上开「允许写回」（逐条落账本），服务端不看任何 `force` 一类的旁路参数——早期那个后门已经删掉了。
 
+## 权限与风险披露
+
+安装前请知悉这个插件被 DSH 加载后会拿到 / 用到哪些能力（社区收录站要求直白声明的那几项）：
+
+- **文件系统读写**：会**读取**本机各 AI 工具的 MCP 配置文件——Claude Code / Claude Desktop / Codex CLI / VS Code / GitHub Copilot CLI / Cursor / Windsurf / Trae 与 Trae CN / Kiro / MarsCode / Qoder / CodeBuddy / OpenCode / O+ Connect / Cline / Roo Code / Kilo Code / Gemini CLI，以及 Zed / Warp / Continue / 通义灵码 / Cherry Studio（这几个注册表里就标了只读，只看不写）。默认全程**只读扫描**；只有你在某条条目上点开「允许写回」并确认，才会往那个工具自己的配置文件里写入 / 删除条目。
+- **DSH 自身配置的写权限**：采纳、DSH 侧的新增 / 编辑 / 删除 / 停用都会改 profile 的 `cordis.patch.yml`（改之前做结构校验，改之前先备份）。
+- **网络访问：没有对外请求**。宿主侧不开任何出网连接；浏览器侧只与本机的 `/mcp-global/*` 通信（回环 + 同源校验）。不上传、不上报你的配置。
+- **API Key / 凭据：本插件自身不需要任何密钥**，也不向任何服务鉴权。它只是搬运你配置文件里**已经存在**的 token：面板上对 `*KEY* / *PASSWORD* / *SECRET* / *TOKEN*` 掩码显示，写回时用磁盘原值还原，绝不把 `••••••••` 落盘。
+  ⚠️ 但**很多工具自己就是明文存 token**（例如 Trae CN 的 Apifox 条目），本插件不改变这一点——别把那些文件原样贴给别人或提交进仓库。
+- **远程命令执行：没有**。不会为了装某个 MCP server 去跑 `npx` / `git` / 下载脚本，只改配置文本。
+- **权限级别**：只用你当前登录用户的文件权限，不提权、不碰系统级目录。
+- **数据落盘范围**：只有 `~/.dsh/mcp-global-manager/` 下的 `state.json`（差异基线 + 哪些条目授权过写回）和 `backups/`（写前备份，最多留 40 份）。两者都在插件目录之外，`.gitignore` 也一并排除了，不会跟着仓库走。
+- **可撤销 / 可卸载**：删掉 `state.json` 就回到全新扫描状态；卸载只是从 profile 移除这条依赖（详见文末「卸载」）。
+
+## 兼容性
+
+需要的 DSH harness 版本（`package.json` 里 `peerDependencies` 的人话版）：
+
+- `>=0.1.6-alpha.1 <0.2.0-0`，或 `>=0.2.0-rc.1 <0.3.0-0`；
+- 也就是 **0.1.6-alpha 起的 0.1.x** 和 **0.2.0-rc 起的 0.2.x**，0.2.0 正式版之前的过渡版本不支持。
+
+还依赖三个由 DSH 宿主提供的 web 能力（不用你单独装）：`@deepseek-ai/dsh-host-webserver`（挂本机 API）、`@deepseek-ai/dsh-client-locale`（中文文案）、`@deepseek-ai/dsh-client-ui-slots`（侧栏入口槽位）。
+
+## 安装
+
+用 DSH 自带的插件命令最省事，`--profile` 换成你实际在用的 profile 名（`web` / `desktop` / `tui` …）：
+
+```powershell
+# ① 包发布到 registry 之后（推荐）
+dsh plugin --profile web add dsh-mcp-global-manager
+
+# ② 还没发布也能装：本地目录（开发态）
+dsh plugin --profile web add file:C:/Users/you/dsh-plugins/dsh-mcp-global-manager
+
+# ③ 或者装打包好的 tarball
+dsh plugin --profile web add ./dsh-mcp-global-manager-0.1.0.tgz
+```
+
+`dsh plugin` 会把后面的参数原样转给 pnpm（`dsh --help` 里的官方示例就是 `dsh plugin --profile tui add <package>`），所以 `github:user/repo` 这类 pnpm 支持的写法同样能用；首条 registry 命令要等包发到 npm 之后才有效。
+
+装完**彻底重启** DSH（托盘右键退出再打开——`Ctrl+R` 只重载前端，宿主进程里的 `lib/*.js` 还是旧的），侧栏「远程链接」正下方就会出现 **MCP全局管理**。改源码后怎么同步进 profile，见文末「改完代码之后」。
+
 ## 面板怎么用
 
 1. 侧栏点 **MCP全局管理**。
