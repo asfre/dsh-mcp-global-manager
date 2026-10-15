@@ -28,7 +28,7 @@ import {
   validateDocument,
 } from '../lib/patch.js';
 import { normalizeEntry, readJsonDialect, readTomlDialect, readOpenCodeDialect, toDialectEntry, writeJsonDialect, writeTomlDialect } from '../lib/dialect.js';
-import { backupDir, commitSnapshot, scanAll, serverKey, statePath } from '../lib/scan.js';
+import { backupDir, commitSnapshot, forgetEntry, scanAll, serverKey, statePath, writeState } from '../lib/scan.js';
 import {
   dshAdd,
   dshRemove,
@@ -594,6 +594,25 @@ test('消失后原样回来 → same（基线不能被丢掉，这是「只标�
   assert.notEqual(state.lastSeen[probeKey], undefined, '展示信息也要留着');
   writeProbe('bbb'); // 原样放回：内容跟消失前一模一样
   assert.equal(findItem(scanAll({ ...scanCtx, state }), probeKey).status, 'same', '回来≠新增');
+});
+
+test('清除标记只删账本条目：下次扫描这行彻底消失，配置文件一个字节不动', () => {
+  writeProbe('bbb');
+  const state0 = baseState();
+  let state = commitSnapshot(state0, scanAll({ ...scanCtx, state: state0 }));
+  rmSync(probeFile, { force: true });
+  state = commitSnapshot(state, scanAll({ ...scanCtx, state }));
+  assert.equal(findItem(scanAll({ ...scanCtx, state }), probeKey).status, 'gone');
+  writeState(state); // forgetEntry 走盘上账本（和真实路由同一条路），先把gone 状态落盘
+  const outcome = forgetEntry(probeKey);
+  assert.equal(outcome.ok, true);
+  assert.equal(outcome.forgot, true, '要报告确实清掉了东西');
+  const after = JSON.parse(readFileSync(statePath(), 'utf8'));
+  assert.equal(after.fingerprints[probeKey], undefined, '指纹要删');
+  assert.equal(after.lastSeen[probeKey], undefined, '上次快照要删');
+  assert.equal(after.adopted[probeKey], undefined, '本用例没给采纳关系，别凭空多出');
+  assert.equal(findItem(scanAll({ ...scanCtx, state: after }), probeKey), undefined, '清完标记这行不再出现在列表');
+  assert.equal(forgetEntry('nope::nothing').forgot, false, '清不存在的标记不报错');
 });
 
 test('账本缺字段（被手改坏的 state.json）也不许让扫描崩掉', () => {
