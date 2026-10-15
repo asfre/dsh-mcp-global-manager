@@ -107,10 +107,16 @@ if (mounted === null) {
 }
 console.log(`路由挂载 OK：kind=${mounted.kind} path=${mounted.path}`);
 
-// ── 假 req/res：只读 GET，走回环，满足插件的本机门禁 ─────────────────────────
-function get(pathname) {
+// ── 假 req/res：默认走回环、不带 Origin（等价于本地脚本），
+//    opts 可覆盖 headers（Origin/Host）与 remoteAddress，用来演练 CSRF 门禁。
+function get(pathname, opts = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
-    const req = { method: 'GET', url: pathname, socket: { remoteAddress: '127.0.0.1' }, headers: {} };
+    const req = {
+      method: 'GET',
+      url: pathname,
+      socket: { remoteAddress: opts.remoteAddress ?? '127.0.0.1' },
+      headers: { ...(opts.headers ?? {}) },
+    };
     const res = {
       writableEnded: false,
       statusCode: 0,
@@ -140,16 +146,16 @@ function get(pathname) {
   });
 }
 
-/** POST：把假 req 变成能喂 body 的事件源（readBody 监听 data/end）。 */
-function post(pathname, payload) {
+/** POST：把假 req 变成能喂 body 的事件源（readBody 监听 data/end）。opts 同 get。 */
+function post(pathname, payload, opts = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
     const listeners = {};
     const text = JSON.stringify(payload);
     const req = {
       method: 'POST',
       url: pathname,
-      socket: { remoteAddress: '127.0.0.1' },
-      headers: { 'content-type': 'application/json' },
+      socket: { remoteAddress: opts.remoteAddress ?? '127.0.0.1' },
+      headers: { 'content-type': 'application/json', ...(opts.headers ?? {}) },
       on(event, cb) {
         (listeners[event] ??= []).push(cb);
       },
@@ -268,9 +274,14 @@ try {
 }
 
 // ── 演练 4：写回门禁（全部必须被拒绝，而且一个字节都不许写）────────────────────
-// 面板现在不再替用户送 force，所以这两道门（源允许写回 + 条目已授权）是真会拦人的。
+// 服务端已删除 force 后门，所以这两道门（源允许写回 + 条目已授权）是唯一防线：
+// 任何带着 force 的越权请求也必须被拦下，本演练就是钉这件事的。
 console.log('\n[4] POST /push 门禁演练（拒绝路径）');
-const backupsDir = join(homedir(), '.dsh', NAME, 'backups');
+// 插件数据目录是 `~/.dsh/mcp-global-manager/`（scan.js 的 dataDir()），**不是包名**
+// `dsh-mcp-global-manager`。早先这里拼成了包名，目录根本不存在，countBackups() 恒为 0，
+// 于是「拒绝路径没产生备份」两条断言全是空断言（0 === 0 永远成立）。
+const dataDir = join(homedir(), '.dsh', 'mcp-global-manager');
+const backupsDir = join(dataDir, 'backups');
 const countBackups = () => {
   try {
     return readdirSync(backupsDir).length;
@@ -287,8 +298,10 @@ const gateCases = [
   { key: 'zz-no-such-source::x', expect: /未知源/u, label: '未知源直接拒' },
   { key: 'dsh::x', expect: /不需要写回/u, label: 'DSH 自己不写回' },
   { key: 'zed::probe', expect: /只读/u, label: '注册表标只读的源（Zed）拒写' },
-  { key: 'zed::probe', body: { force: true }, expect: /只读/u, label: '就算带 force，只读源依然拒写（注册表说了算）' },
+  { key: 'zed::probe', body: { force: true }, expect: /只读/u, label: '带 force 也没用：服务端已不认 force，只读源照样拒写' },
   { key: 'cursor::probe', expect: /允许写回/u, label: '可写源但没逐条授权 → 拒（面板现在靠这条兜底）' },
+  // FIX-1 的正主：force 后门已从服务端删掉，带着 force 的越权写回必须仍被逐条授权门拦下。
+  { key: 'cursor::probe', body: { force: true }, expect: /允许写回/u, label: '带 force 也越不过逐条授权门（force 后门已删除）' },
 ];
 for (const item of gateCases) {
   try {
@@ -302,10 +315,13 @@ for (const item of gateCases) {
 try {
   await post('/mcp-global/sources/add', { id: gateProbeId, label: '门禁探针（只读）', format: 'json', writeBack: false, paths: [gateFile] });
   await post('/mcp-global/sources/add', { id: gateWritableId, label: '门禁探针（可写）', format: 'json', writeBack: true, paths: [gateFile] });
-  const ro = await post('/mcp-global/push', { key: `${gateProbeId}::probe`, action: 'upsert', force: true, server: { serverName: 'probe' } });
+  const ro = await post('/mcp-global/push', { key: `${gateProbeId}::probe`, action: 'upsert', server: { serverName: 'probe' } });
   ok(ro.status !== 200 && /只读/u.test(ro.body), `自定义源标 writeBack:false 也拒 → ${ro.status} ${ro.body.slice(0, 80)}`);
-  // 可写但文件不存在：必须在碰到磁盘之前停下
-  const missing = await post('/mcp-global/push', { key: `${gateWritableId}::probe`, action: 'upsert', force: true, server: { serverName: 'probe', transport: 'stdio', command: 'true' } });
+  // 可写但文件不存在：必须在碰到磁盘之前停下。
+  // force 后门删除后，得先走正规逐条授权（/pushback）才触达得到后面的文件存在性校验。
+  const authGate = await post('/mcp-global/pushback', { key: `${gateWritableId}::probe`, enabled: true });
+  ok(authGate.status === 200, `给可写探针逐条授权（演练前置）→ HTTP ${authGate.status}`);
+  const missing = await post('/mcp-global/push', { key: `${gateWritableId}::probe`, action: 'upsert', server: { serverName: 'probe', transport: 'stdio', command: 'true' } });
   ok(missing.status !== 200 && /当前不存在/u.test(missing.body), `目标文件不在位时拒写，不凭空创建 → ${missing.status} ${missing.body.slice(0, 80)}`);
   ok(!existsSync(gateFile), '临时路径确实没被凭空创建');
 } catch (error) {
@@ -320,7 +336,9 @@ try {
   }
 }
 const backupCountAfter = countBackups();
-ok(backupCountAfter === backupCountBefore, `门禁演练没产生任何备份文件（${backupCountBefore} → ${backupCountAfter}，说明从没走到写那一步）`);
+// 括号里报一下目录到底存不存在：0 → 0 既可能是「真没写」，也可能是「目录压根没建过」，
+// 看清哪种情况，免得将来又有人对着一条空断言放心。
+ok(backupCountAfter === backupCountBefore, `门禁演练没产生任何备份文件（${backupCountBefore} → ${backupCountAfter}；备份目录${existsSync(backupsDir) ? `存在，路径 ${backupsDir}` : '尚未创建（本机还没真写过盘）'}）`);
 
 // 真实补丁上的越权尝试：用装着的另一个插件的行 id 来删/停，必须在碰磁盘之前就被拒。
 // （removeRow 找不到受管行 → changed:false → 409；旧代码会走到 commitText 然后谎报成功。）
@@ -361,12 +379,14 @@ try {
   ok(r1.status === 200, `带掩码写回（应自动还原真值）→ HTTP ${r1.status} ${r1.body.slice(0, 120)}`);
   const after1 = JSON.parse(readFileSync(maskFile, 'utf8'));
   ok(after1?.mcpServers?.probe?.env?.API_KEY === 'real-secret-123', '工具配置里的真值没被 •••• 覆盖', String(after1?.mcpServers?.probe?.env?.API_KEY));
-  // 反向：源文件里没有的新条目带着掩码 → 无原值可还原，必须拒写
+  // 反向：源文件里没有的新条目带着掩码 → 无原值可还原，必须拒写。
+  // force 后门删除后要先逐条授权 ghost，请求才走得到掩码校验那一步。
+  const authGhost = await post('/mcp-global/pushback', { key: `${maskProbeId}::ghost`, enabled: true });
+  ok(authGhost.status === 200, `给 ghost 条目逐条授权（演练前置）→ HTTP ${authGhost.status}`);
   const r2 = await post('/mcp-global/push', {
     key: `${maskProbeId}::ghost`,
     action: 'upsert',
     backup: false,
-    force: true,
     server: { serverName: 'ghost', transport: 'stdio', command: 'true', env: { API_KEY: MASK } },
   });
   ok(r2.status === 409 && /掩码/.test(r2.body), `无原值可还原时拒写 → ${r2.status} ${r2.body.slice(0, 100)}`);
@@ -387,7 +407,7 @@ try {
   }
   // /pushback 把探针授权写进了真实账本：清掉 zz- 开头的条目，不留痕
   try {
-    const stateFile = join(homedir(), '.dsh', 'mcp-global-manager', 'state.json');
+    const stateFile = join(dataDir, 'state.json');
     const st = JSON.parse(readFileSync(stateFile, 'utf8'));
     let touched = false;
     for (const key of Object.keys(st.adopted ?? {})) {
@@ -401,6 +421,43 @@ try {
     // 账本清理失败会在收尾核对时暴露
   }
 }
+
+// ── 演练 6：CSRF 门禁（FIX-2）：跨站 Origin 必须在路由分发之前就被拦掉 ──────────
+// 恶意网页同样是从本机打过来的（remoteAddress = 127.0.0.1），isLoopback 挡不住它，
+// 唯一能区分「面板/本地脚本」与「别的站点」的就是 Origin。这里验的是拦截**顺序**：
+// 被 CSRF 挡下的请求绝不能走到业务逻辑，所以拿只读探针当靶子，只比对错误文案。
+console.log('\n[6] Origin/Host 同源校验（CSRF 防护）');
+const CSRF = '拒绝跨站请求（CSRF 防护）';
+const csrfTarget = { key: 'zed::probe', action: 'upsert', server: { serverName: 'probe', transport: 'stdio', command: 'true' } };
+const csrfCases = [
+  { headers: { origin: 'http://evil.example.com' }, expect: 403, label: '跨站网页（evil.example.com）POST /push → 拒', route: '/mcp-global/push', payload: csrfTarget },
+  { headers: { origin: 'null' }, expect: 403, label: 'file:// 之类不透明源 Origin: null → 拒', route: '/mcp-global/push', payload: csrfTarget },
+  { headers: { origin: 'http://127.0.0.1' }, expect: 403, label: 'Origin 能解析但 host 不对 → 拒', route: '/mcp-global/push', payload: csrfTarget },
+  { headers: { origin: 'https://evil.example.com' }, expect: 403, label: '跨站 GET /scan 也拒（只读接口同样设防）', route: '/mcp-global/scan', payload: undefined },
+  { headers: { origin: 'http://127.0.0.1:19387', host: '127.0.0.1:19387' }, expect: 403, label: '同源面板放行（走到业务门才报只读，不是 CSRF）', route: '/mcp-global/push', payload: csrfTarget, not: CSRF },
+  { headers: {}, expect: 403, label: '本地脚本/curl 不带 Origin → 放行（报的是业务错，不是 CSRF）', route: '/mcp-global/push', payload: csrfTarget, not: CSRF },
+];
+for (const item of csrfCases) {
+  try {
+    const isGet = item.route === '/mcp-global/scan';
+    const r = isGet
+      ? await get(item.route, { headers: item.headers })
+      : await post(item.route, item.payload, { headers: item.headers });
+    const text = `${r.status} ${r.body}`;
+    if (item.not !== undefined) ok(r.status === item.expect && !text.includes(item.not), `${item.label} → ${text.slice(0, 90)}`);
+    else ok(r.status === item.expect && text.includes(CSRF), `${item.label} → ${text.slice(0, 90)}`);
+  } catch (error) {
+    ok(false, item.label, String(error?.message ?? error));
+  }
+}
+// 非回环来源仍然先被本机门禁挡下（顺序：loopback → sameOrigin → 路由）
+try {
+  const r = await get('/mcp-global/scan', { remoteAddress: '10.1.2.3', headers: { origin: 'http://127.0.0.1:19387', host: '127.0.0.1:19387' } });
+  ok(r.status === 403 && r.body.includes('仅允许本机访问'), `局域网/公网来源 → 拒（本机门禁优先）→ ${r.status} ${r.body.slice(0, 60)}`);
+} catch (error) {
+  ok(false, '非回环来源演练', String(error?.message ?? error));
+}
+ok(countBackups() === backupCountBefore, `CSRF 演练同样没产生任何备份文件（${backupCountBefore} → ${countBackups()}）`);
 
 if (logs.length > 0) {
   console.log('\n宿主入口日志：');
