@@ -289,6 +289,31 @@ for (const call of pushCalls) {
   ok(before.includes('window.confirm'), `第 ${call.index} 字符处的 /push 调用有确认框`, before.slice(-80).replace(/\s+/g, ' '));
 }
 
+// ── 2026-10 反馈修复：加参数行 / DSH 行 id 兜底 / 表单校验 / 气泡提示 ──────────
+console.log('\n=== 反馈修复（加参数、id 兜底、校验、气泡） ===');
+ok(JSON.stringify(I.addArgRow([])) === '[""]', 'addArgRow：参数为空也能加出一行（旧版按钮没反应的根源）');
+ok(JSON.stringify(I.addArgRow(['-y'])) === '["-y",""]', 'addArgRow：已有参数原样保留再加一行');
+ok(I.dshIdOf({ id: 'mcp-x', serverName: 'x' }) === 'mcp-x', 'dshIdOf：优先用服务端返回的 id');
+ok(I.dshIdOf({ inDsh: true, serverName: '44' }) === 'mcp-44', 'dshIdOf：旧宿主 /scan 没带 id 时按服务名派生（停用/删除不再发幽灵 id）');
+ok(I.dshIdOf({ inDsh: false, serverName: 'y' }) === null, 'dshIdOf：外部行不派生 id');
+ok(I.dshIdOf(null) === null, 'dshIdOf：null 不炸');
+ok(I.checkMapText('A=1\n\nB=2') === null, 'checkMapText：正常 K=V（含空行）通过');
+ok(I.checkMapText('BROKEN_LINE') === 'vEnvLine', 'checkMapText：缺 = 号的行被拦');
+ok(I.checkMapText('A B=1') === 'vEnvKey', 'checkMapText：名字带空格被拦');
+const vt = (k) => I.zh[k];
+ok(I.validateServerForm({ serverName: '', transport: 'stdio', command: 'npx' }, { strictName: true }, vt).serverName !== undefined, '校验：空服务名被拦');
+ok(I.validateServerForm({ serverName: '有 空格', transport: 'stdio', command: 'npx' }, { strictName: true }, vt).serverName !== undefined, '校验：服务名非法字符被拦');
+ok(I.validateServerForm({ serverName: 'dup', transport: 'stdio', command: 'npx' }, { strictName: true, existingNames: ['dup'] }, vt).serverName !== undefined, '校验：DSH 里已有同名被拦');
+ok(I.validateServerForm({ serverName: 'dup', transport: 'stdio', command: 'npx' }, { strictName: true, existingNames: ['dup'], selfName: 'dup' }, vt).serverName === undefined, '校验：编辑自己不改名不算撞名');
+ok(I.validateServerForm({ serverName: 'ok', transport: 'stdio', command: '' }, { strictName: true }, vt).command !== undefined, '校验：stdio 缺命令被拦');
+ok(I.validateServerForm({ serverName: 'ok', transport: 'stdio', command: 'npx -y foo' }, { strictName: true }, vt).command !== undefined, '校验：命令里混进参数（带空格）被拦');
+ok(I.validateServerForm({ serverName: 'ok', transport: 'streamable-http', url: 'ftp://x' }, { strictName: true }, vt).url !== undefined, '校验：URL 不是 http(s) 被拦');
+ok(I.validateServerForm({ serverName: 'ok', transport: 'stdio', command: 'npx', envText: 'BROKEN' }, { strictName: true }, vt).env !== undefined, '校验：env 缺 = 号被拦');
+ok(Object.keys(I.validateServerForm({ serverName: 'ok', transport: 'streamable-http', url: 'https://h/mcp', headersText: 'Authorization=Bearer x' }, { strictName: true }, vt)).length === 0, '校验：完整的远程表单通过');
+ok(I.validateServerForm({ serverName: '随便什么名字都行', transport: 'stdio', command: 'npx' }, { strictName: false }, vt).serverName === undefined, '校验：写回外部工具时名字规则放宽');
+ok(/role: "status"/.test(src), '气泡容器带 role="status"（读屏器可感知）');
+ok(/function pushToast/.test(src), 'pushToast 存在（错误改气泡展示）');
+
 console.log(`\n渲染元素 ${renderCounts.elements} 个 / 组件 ${renderCounts.components} 次`);
 if (failures > 0) {
   console.log(`\n失败 ${failures} 项`);
