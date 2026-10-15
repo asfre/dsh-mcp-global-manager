@@ -19,7 +19,7 @@ MCP 配置往往散在 Claude Code / Codex / VS Code / Trae / Kiro / MarsCode / 
 - **凭据掩码**：`*KEY* / *PASSWORD* / *SECRET* / *TOKEN*` 的环境变量在面板里显示为 `••••••••`；不改它就用原值，改了才覆盖。
   ⚠️ 注意：不少工具（例如 Trae CN 的 Apifox 条目）会把 token **明文**存在自己的配置文件里。本插件只在面板显示时打码，源文件本身仍是明文——别把那些文件原样贴给别人或提交进仓库。
 - **只读源**：注册表里标 `writeBack:false` 的源（lingma / cherry-studio / zed / warp / continue）只读不写，面板点写回会被 403 挡下。
-- **仅本机访问 + 同源校验**：API 挂在 `/mcp-global/*`，非 loopback 请求一律 403；带 `Origin` 且与本机 `Host` 不同源的请求（也就是浏览器里别的站点发来的 CSRF）同样 403，只读接口也设防。本地脚本 / curl 不带 `Origin`，照常放行。
+- **仅本机访问 + 同源校验**：API 挂在 `/mcp-global/*`，非 loopback 请求一律 403；带 `Origin` 且与本机 `Host` 不同源的请求（也就是浏览器里别的站点发来的 CSRF）同样 403，只读接口也设防。本地脚本 / curl 不带 `Origin`、桌面壳用自定义协议源（`app://` 一类，网页发不出这种源），都照常放行。
 - **写回没有绕过开关**：往别的工具配置里写/删，必须先在条目上开「允许写回」（逐条落账本），服务端不看任何 `force` 一类的旁路参数——早期那个后门已经删掉了。
 
 ## 权限与风险披露

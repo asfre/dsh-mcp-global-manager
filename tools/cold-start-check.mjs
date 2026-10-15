@@ -436,6 +436,7 @@ const csrfCases = [
   { headers: { origin: 'https://evil.example.com' }, expect: 403, label: '跨站 GET /scan 也拒（只读接口同样设防）', route: '/mcp-global/scan', payload: undefined },
   { headers: { origin: 'http://127.0.0.1:19387', host: '127.0.0.1:19387' }, expect: 403, label: '同源面板放行（走到业务门才报只读，不是 CSRF）', route: '/mcp-global/push', payload: csrfTarget, not: CSRF },
   { headers: {}, expect: 403, label: '本地脚本/curl 不带 Origin → 放行（报的是业务错，不是 CSRF）', route: '/mcp-global/push', payload: csrfTarget, not: CSRF },
+  { headers: { origin: 'dsh://app' }, expect: 403, label: '桌面壳自定义协议 Origin → 放行（网页发不出这种源，不该把自己人拒了）', route: '/mcp-global/push', payload: csrfTarget, not: CSRF },
 ];
 for (const item of csrfCases) {
   try {
