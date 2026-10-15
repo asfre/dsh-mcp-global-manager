@@ -119,7 +119,7 @@ node "$env:USERPROFILE\dsh-plugins\dsh-mcp-global-manager\test\run.mjs"
 `file:` 安装是**实拷贝**，源码改了 profile 里不会自己变：
 
 ```powershell
-# 1. 回归（后端 49 项，含 sync.js 写路径的沙箱演练 + 客户端包冒烟）
+# 1. 回归（后端 50 项，含 sync.js 写路径的沙箱演练 + 客户端包冒烟）
 node "$env:USERPROFILE\dsh-plugins\dsh-mcp-global-manager\test\run.mjs"
 node "$env:USERPROFILE\dsh-plugins\dsh-mcp-global-manager\tools\smoke-client.mjs"
 
@@ -134,11 +134,13 @@ powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\dsh-plugins\dsh-mcp-g
 # 3. 只改客户端 → Ctrl+R 刷新界面即可；改了宿主侧 lib/*.js → 重启 DSH
 ```
 
-`smoke-client.mjs` 用 React / slots / locale 桩把面板渲染跑一遍，专门拦「一个 ReferenceError 让整页白屏」这类事故，并校验侧栏 `order=22`、文案 `MCP全局管理`、以及全部 91 个 `t()` key 都在 `zh` 里。
+`smoke-client.mjs` 用 React / slots / locale 桩把面板渲染跑一遍，专门拦「一个 ReferenceError 让整页白屏」这类事故，并校验侧栏 `order=22`、文案 `MCP全局管理`、以及全部 `t()` key（当前 98 个，具体数字由脚本自己报出来）都在 `zh` 里。
 
 ## 一个会反复咬人的坑：js-yaml 版本
 
-补丁方言依赖 js-yaml **4.x** 的 `Type` 构造器（DSH 加载器同款）。profile 的 hoisted `node_modules/js-yaml` 会被别的插件（如 `dsh-config-manager` 依赖 5.x）占位，而 5.x 没有 `Type` → `buildSchema` 直接 TypeError。`resolveYaml()` 因此按**能力**挑副本：先标准解析，拿到不可用的就退到 `node_modules/.pnpm/js-yaml@4.x/node_modules/js-yaml`。pnpm 重整目录（`Packages: +N -M` 里那 M 个孤儿）会让「之前能用、重启后崩」这种情况出现，所以别只测当前进程，重启后也要点一次 **自检**。
+补丁方言依赖 js-yaml **4.x** 的 `Type` 构造器（DSH 加载器同款），所以 `package.json` 里把它**显式声明成 `dependencies: { "js-yaml": "^4.1.0" }`**：正规 `pnpm add file:…` / `dsh plugin add` 装完，插件自己目录下就该有一份 4.x，不用赌运气。
+
+但**别只依赖这一份**：profile 的 hoisted `node_modules/js-yaml` 可能被别的插件（如 `dsh-config-manager` 依赖 5.x）占位，而 5.x 没有 `Type` → `buildSchema` 直接 TypeError；用 `tools/sync-to-profile.ps1` 覆盖已安装副本时也只搬 `lib/` 等源文件、**不会搬 `node_modules`**，所以「只同步文件」的那条路永远拿不到插件自己的 4.x。因此 `resolveYaml()` 仍按**能力**挑副本：先标准解析，拿到不可用的就退到 `node_modules/.pnpm/js-yaml@4.x/node_modules/js-yaml`，邻居目录里的兜底扫描是最后一道保险，别删。pnpm 重整目录（`Packages: +N -M` 里那 M 个孤儿）会让「之前能用、重启后崩」这种情况出现，所以别只测当前进程，重启后也要点一次 **自检**。
 
 
 ## 验收清单（彻底重启后照着走一遍，约 2 分钟）

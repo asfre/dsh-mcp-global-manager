@@ -43,6 +43,9 @@
     "cold": "node tools/cold-start-check.mjs",
     "test": "node test/run.mjs"
   },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
   "peerDependencies": {
     "@deepseek-ai/dsh": ">=0.1.6-alpha.1 <0.2.0-0 || >=0.2.0-rc.1 <0.3.0-0",
     "@deepseek-ai/dsh-client-locale": "^0.2.0-rc.2",
