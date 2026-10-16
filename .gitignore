@@ -12,3 +12,7 @@ backups/
 Thumbs.db
 *.bak
 *.bak-*
+
+# 内部工作文档（不进仓库）
+FIXES.md
+投稿操作单.md
