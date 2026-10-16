@@ -6,7 +6,25 @@ DSH 侧栏面板：把散落在本机各编程工具里的 MCP 配置收进一�
 
 MIT · Windows / macOS / Linux · DSH ≥ 0.1.6-alpha · 不出网 · 不执行命令
 
-> 面板截图整理中（清单见 `assets/SHOOT.md`，`screenshots.json` 已就位）。
+## 界面速览
+
+> 以下截图中的本机绝对路径已做模糊处理，仅保留 `~` / `%APPDATA%` 通用占位。
+
+**① 扫描总览** —— 顶部状态徽章（条目 / 一致 / 存在的文件）+ 按工具分组的差异账本，新/变/缺/同四态一目了然：
+
+![扫描总览](assets/screenshot-1.png)
+
+**② DSH 侧新增** —— 三步表单（基本信息 / 怎么启动 / 环境变量），支持整行命令粘贴「识别」自动拆好，底部实时预览将要写入的内容：
+
+![新增 DSH 条目](assets/screenshot-2.png)
+
+**③ 来源注册表** —— 28 个内置源 + 自定义源，每条带 `builtin` 徽章与多平台候选路径，可点开展开管理、增删自定义源：
+
+![来源注册表](assets/screenshot-3.png)
+
+**④ 自检横幅** —— 面板内「自检」一键校验 js-yaml 解析、安装包/bundles/client.js 是否就位、DSH 受管行数：
+
+![自检输出](assets/screenshot-4.png)
 
 ---
 
