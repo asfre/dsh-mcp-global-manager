@@ -16,6 +16,7 @@ Thumbs.db
 # 内部工作文档（不进仓库）
 FIXES.md
 投稿操作单.md
+assets/SHOOT.md
 
 # 一次性截图加工脚本（含本机绝对路径，不进仓库）
 tools/make-shots.py
