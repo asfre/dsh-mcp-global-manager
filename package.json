@@ -1,6 +1,6 @@
 {
   "name": "dsh-mcp-global-manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP 全局管理：扫描本机所有工具的 MCP 配置，一键刷新同步差异，双向导入/写回，并在 DSH 侧栏直接增删改 MCP 服务器。",
   "keywords": [
     "dsh",
