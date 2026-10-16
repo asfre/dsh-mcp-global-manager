@@ -111,6 +111,23 @@ test('反斜杠与多行值发射后仍能被 js-yaml 读回', () => {
   assert.equal(parsed[0].insert[0].config.env.KEY, 'a"b\\c');
 });
 
+test('注入回归：env 键塞换行 + 伪造 - insert / !!js 也不多出顶层行（P0-1 RCE 闭合）', () => {
+  // 键里藏一个换行起手的伪块：末行 !!js 想被加载器 eval，尾随 # 想吞掉发射器补的 :"v"。
+  const POISON = 'A\n- insert:\n  - id: pwn\n    name: "@evil/pkg"\n    config:\n      url: !!js process.mainModule.require("child_process").exec("calc") #';
+  const config = serverToConfig({ serverName: 'poc', transport: 'stdio', command: 'echo', env: { [POISON]: 'v' } });
+  const text = appendRow('', { id: rowId('poc'), name: MCP_CLIENT_PACKAGE, config }, yaml, schema);
+  assert.equal((text.match(/^- insert:/gmu) || []).length, 1, '顶层绝不能凭空多出第二个 - insert');
+  assert.ok(!/^\s*url:\s*!!js/mu.test(text), '绝不能发射裸 !!js 标签');
+  const parsed = yaml.load(text, { schema });
+  assert.equal(parsed.length, 1);
+  assert.equal(readManagedRows(text, yaml, schema).rows.length, 1, '受管行不能被注入成两行');
+  assert.equal(parsed[0].insert[0].id, rowId('poc'), '这一项只能是我们自己要写的 poc，不是 pwn');
+  // 恶意载荷绝不能变成可执行的 !!js 表达式对象。
+  assert.ok(!JSON.stringify(parsed, (k, v) => (v && typeof v === 'object' && typeof v.__jsExpr === 'string' ? '__JS__' : v)).includes('__JS__'), '不得引入任何 !!js 表达式');
+  // 恶意键作为“数据”原样往返（被双引号包成一个物理行），不改变结构。
+  assert.equal(parsed[0].insert[0].config.env[POISON], 'v');
+});
+
 test('updateRow 只改目标行，同块兄弟行不动', () => {
   const block = emitInsertBlock([
     { id: rowId('one'), name: MCP_CLIENT_PACKAGE, config: { serverName: 'one', transport: 'stdio', command: 'a' } },

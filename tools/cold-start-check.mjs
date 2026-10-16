@@ -273,6 +273,57 @@ try {
   }
 }
 
+// ── 演练 3b：P0-2 回归 —— 源 id 禁冒号 + 改落点路径即吊销写回授权 ──────────────
+// 两条都是越权面：id 带冒号会污染 `sourceId::name` 的切分（嫁祸别的源）；
+// 同一个 id 悄悄改了落点路径，之前给的逐条授权绝不能跟着搬家到新文件。
+console.log('\n[3b] /sources/add 的 id 白名单与重定向吊销');
+const rtId = 'zz-rt-probe';
+const rtFileA = join(tmpdir(), 'dsh-mcp-global-rt-a.json');
+const rtFileB = join(tmpdir(), 'dsh-mcp-global-rt-b.json');
+try {
+  const colonAdd = await post('/mcp-global/sources/add', { id: 'zz-evil::cursor', label: '嫁祸探针', format: 'json', paths: [join(tmpdir(), 'zz-none.json')] });
+  ok(colonAdd.status === 400 && /冒号/u.test(colonAdd.body), `源 id 带冒号被直接拒 → HTTP ${colonAdd.status} ${colonAdd.body.slice(0, 90)}`);
+
+  writeFileSync(rtFileA, JSON.stringify({ mcpServers: { probe: { command: 'true' } } }, null, 2));
+  writeFileSync(rtFileB, JSON.stringify({ mcpServers: { probe: { command: 'true' } } }, null, 2));
+  await post('/mcp-global/sources/add', { id: rtId, label: '重定向探针', format: 'json', writeBack: true, paths: [rtFileA] });
+  const authA = await post('/mcp-global/pushback', { key: `${rtId}::probe`, enabled: true });
+  ok(authA.status === 200, `落点 A 下逐条授权成功（重定向演练前置）→ HTTP ${authA.status}`);
+  // 把同一个 id 的落点改到 B：原有写回授权必须被吊销。
+  const readd = await post('/mcp-global/sources/add', { id: rtId, label: '重定向探针', format: 'json', writeBack: true, paths: [rtFileB] });
+  ok(readd.status === 200 && /"retargeted":true/u.test(readd.body), `改路径 → 返回标记 retargeted → HTTP ${readd.status} ${readd.body.slice(0, 90)}`);
+  const pushAfter = await post('/mcp-global/push', { key: `${rtId}::probe`, action: 'upsert', server: { serverName: 'probe', transport: 'stdio', command: 'true' } });
+  ok(pushAfter.status === 403 && /允许写回/u.test(pushAfter.body), `改落点后原授权被吊销，写回被拒 → HTTP ${pushAfter.status} ${pushAfter.body.slice(0, 80)}`);
+} catch (error) {
+  ok(false, '重定向吊销演练异常', String(error?.message ?? error));
+} finally {
+  try {
+    await post('/mcp-global/sources/remove', { id: rtId });
+  } catch {
+    // 清场失败下面会暴露
+  }
+  try {
+    rmSync(rtFileA, { force: true });
+    rmSync(rtFileB, { force: true });
+  } catch {
+    // 临时文件残留不影响断言结果
+  }
+  try {
+    const stFile = join(homedir(), '.dsh', 'mcp-global-manager', 'state.json');
+    const st = JSON.parse(readFileSync(stFile, 'utf8'));
+    let touched = false;
+    for (const key of Object.keys(st.adopted ?? {})) {
+      if (key.startsWith(`${rtId}::`)) {
+        delete st.adopted[key];
+        touched = true;
+      }
+    }
+    if (touched) writeFileSync(stFile, `${JSON.stringify(st, null, 2)}\n`);
+  } catch {
+    // 账本清理失败会在收尾核对时暴露
+  }
+}
+
 // ── 演练 4：写回门禁（全部必须被拒绝，而且一个字节都不许写）────────────────────
 // 服务端已删除 force 后门，所以这两道门（源允许写回 + 条目已授权）是唯一防线：
 // 任何带着 force 的越权请求也必须被拦下，本演练就是钉这件事的。
@@ -319,10 +370,12 @@ try {
   ok(ro.status !== 200 && /只读/u.test(ro.body), `自定义源标 writeBack:false 也拒 → ${ro.status} ${ro.body.slice(0, 80)}`);
   // 可写但文件不存在：必须在碰到磁盘之前停下。
   // force 后门删除后，得先走正规逐条授权（/pushback）才触达得到后面的文件存在性校验。
+  // 逐条授权门只认真实存在的条目：gateFile 不存在 → 该源扫描不到 probe → 授权必须被拒（防预置授权）。
   const authGate = await post('/mcp-global/pushback', { key: `${gateWritableId}::probe`, enabled: true });
-  ok(authGate.status === 200, `给可写探针逐条授权（演练前置）→ HTTP ${authGate.status}`);
+  ok(authGate.status === 400 && /当前扫描到的真实条目/u.test(authGate.body), `文件不存在→条目不在扫描里→逐条授权被拒（防预置）→ HTTP ${authGate.status} ${authGate.body.slice(0, 80)}`);
+  // 没授权成，写回自然也进不去；且绝不凭空创建目标文件。
   const missing = await post('/mcp-global/push', { key: `${gateWritableId}::probe`, action: 'upsert', server: { serverName: 'probe', transport: 'stdio', command: 'true' } });
-  ok(missing.status !== 200 && /当前不存在/u.test(missing.body), `目标文件不在位时拒写，不凭空创建 → ${missing.status} ${missing.body.slice(0, 80)}`);
+  ok(missing.status !== 200 && /允许写回|当前不存在/u.test(missing.body), `未授权/文件不在位时拒写，不凭空创建 → ${missing.status} ${missing.body.slice(0, 80)}`);
   ok(!existsSync(gateFile), '临时路径确实没被凭空创建');
 } catch (error) {
   ok(false, '自定义源门禁演练异常', String(error?.message ?? error));
@@ -379,19 +432,18 @@ try {
   ok(r1.status === 200, `带掩码写回（应自动还原真值）→ HTTP ${r1.status} ${r1.body.slice(0, 120)}`);
   const after1 = JSON.parse(readFileSync(maskFile, 'utf8'));
   ok(after1?.mcpServers?.probe?.env?.API_KEY === 'real-secret-123', '工具配置里的真值没被 •••• 覆盖', String(after1?.mcpServers?.probe?.env?.API_KEY));
-  // 反向：源文件里没有的新条目带着掩码 → 无原值可还原，必须拒写。
-  // force 后门删除后要先逐条授权 ghost，请求才走得到掩码校验那一步。
-  const authGhost = await post('/mcp-global/pushback', { key: `${maskProbeId}::ghost`, enabled: true });
-  ok(authGhost.status === 200, `给 ghost 条目逐条授权（演练前置）→ HTTP ${authGhost.status}`);
+  // 反向：在真实存在且已授权的 probe 上，补一个源文件里没有、又被打码的 env 键 →
+  // 无原值可还原，写回必须在落盘前被拒（409）。逐条授权门要求条目真实存在，
+  // 所以这条只能在 probe 上测，不能凭空造一个源里没有的 ghost 来授权。
   const r2 = await post('/mcp-global/push', {
-    key: `${maskProbeId}::ghost`,
+    key: `${maskProbeId}::probe`,
     action: 'upsert',
-    backup: false,
-    server: { serverName: 'ghost', transport: 'stdio', command: 'true', env: { API_KEY: MASK } },
+    server: { serverName: 'probe', transport: 'stdio', command: 'true', env: { API_KEY: MASK, BRAND_NEW_TOKEN: MASK } },
   });
-  ok(r2.status === 409 && /掩码/.test(r2.body), `无原值可还原时拒写 → ${r2.status} ${r2.body.slice(0, 100)}`);
+  ok(r2.status === 409 && /掩码/.test(r2.body), `陌生掩码键无原值可还原时拒写 → ${r2.status} ${r2.body.slice(0, 100)}`);
   const after2 = JSON.parse(readFileSync(maskFile, 'utf8'));
-  ok(after2?.mcpServers?.ghost === undefined, '被拒的 ghost 没有落进文件');
+  ok(after2?.mcpServers?.probe?.env?.BRAND_NEW_TOKEN === undefined, '被拒的陌生掩码键没有落进文件');
+  ok(after2?.mcpServers?.probe?.env?.API_KEY === 'real-secret-123', '拒写后原真值仍没被动过');
 } catch (error) {
   ok(false, '掩码写回演练异常', String(error?.message ?? error));
 } finally {
@@ -427,6 +479,7 @@ try {
 // 唯一能区分「面板/本地脚本」与「别的站点」的就是 Origin。这里验的是拦截**顺序**：
 // 被 CSRF 挡下的请求绝不能走到业务逻辑，所以拿只读探针当靶子，只比对错误文案。
 console.log('\n[6] Origin/Host 同源校验（CSRF 防护）');
+const csrfBackupBefore = countBackups(); // 单独取基线：[5] 掩码往返正常写回会留备份，不能拿 [4] 前的旧基线来比这一段
 const CSRF = '拒绝跨站请求（CSRF 防护）';
 const csrfTarget = { key: 'zed::probe', action: 'upsert', server: { serverName: 'probe', transport: 'stdio', command: 'true' } };
 const csrfCases = [
@@ -458,7 +511,7 @@ try {
 } catch (error) {
   ok(false, '非回环来源演练', String(error?.message ?? error));
 }
-ok(countBackups() === backupCountBefore, `CSRF 演练同样没产生任何备份文件（${backupCountBefore} → ${countBackups()}）`);
+ok(countBackups() === csrfBackupBefore, `CSRF 演练同样没产生任何备份文件（${csrfBackupBefore} → ${countBackups()}）`);
 
 if (logs.length > 0) {
   console.log('\n宿主入口日志：');
