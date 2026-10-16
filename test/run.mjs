@@ -20,6 +20,9 @@ import {
   removeRow,
   rowId,
   safeServerName,
+  scalar,
+  plainValue,
+  plainMap,
   serverToConfig,
   setDisabled,
   splitTopLevel,
@@ -28,7 +31,7 @@ import {
   validateDocument,
 } from '../lib/patch.js';
 import { normalizeEntry, readJsonDialect, readTomlDialect, readOpenCodeDialect, toDialectEntry, writeJsonDialect, writeTomlDialect } from '../lib/dialect.js';
-import { backupDir, commitSnapshot, forgetEntry, scanAll, serverKey, statePath, writeState } from '../lib/scan.js';
+import { backupDir, commitSnapshot, forgetEntry, listSources, scanAll, serverKey, statePath, writeState } from '../lib/scan.js';
 import {
   dshAdd,
   dshRemove,
@@ -630,6 +633,58 @@ test('账本里认不出主的指纹（没有 lastSeen）会被清掉，不无�
   const next = commitSnapshot(seeded, scanAll({ ...scanCtx, state: seeded }));
   assert.equal(next.fingerprints['zz-ghost::boo'], undefined, '只剩指纹没有上下文的条目应当丢弃');
   assert.notEqual(next.fingerprints[probeKey], undefined, '正常的基线不能被牵连');
+});
+
+// ── 安全加固（2026-10 审查）──────────────────────────────────────────────────
+console.log('\n安全加固：注入消毒与单一视图');
+
+test('scalar：合法单行表达式放行；多行 !!js 不再裸发射', () => {
+  assert.equal(scalar({ __jsExpr: 'process.env.X || "y"' }), '!!js process.env.X || "y"');
+  const bad = scalar({ __jsExpr: 'a\n- id: evil' });
+  assert.ok(!bad.startsWith('!!js'), `不许发射标签：${bad}`);
+});
+
+test('plainValue/Map：注入对象冻成惰性字符串；手写取值式保留', () => {
+  assert.equal(typeof plainValue({ __jsExpr: "require('child_process')" }), 'string');
+  assert.equal(plainValue({ __jsExpr: 'process.env.HOME' }).__jsExpr, 'process.env.HOME');
+  assert.equal(plainValue('a::b'), 'a::b', '普通字符串一律不动');
+  assert.deepEqual(plainMap([1, 2]), {}, '数组形状的表整体作废');
+});
+
+test('serverToConfig 消毒外来文件/表单输入：恶意 env 冻结、普通值不变', () => {
+  const config = serverToConfig({
+    serverName: 'p', transport: 'stdio', command: 'npx',
+    args: ['-y', { __jsExpr: 'process.exit(1)' }],
+    env: { EVIL: { __jsExpr: "require('fs')" }, OK: 'plain', KEEP: { __jsExpr: 'process.env.HOME' } },
+  });
+  assert.equal(typeof config.env.EVIL, 'string', '带函数调用的 env 被冻结');
+  assert.equal(config.env.OK, 'plain');
+  assert.equal(config.env.KEEP.__jsExpr, 'process.env.HOME', '用户手写表达式照常往返');
+  assert.equal(typeof config.args[1], 'string', 'args 同样消毒');
+});
+
+test('自定义源覆盖内置 id：扫描与清单同一视图，授权与目标文件不分家', () => {
+  const overrideFile = join(sandbox, 'trae-override.json');
+  writeFileSync(overrideFile, JSON.stringify({ mcpServers: { zprobe: { command: 'npx', args: ['-y', 'aaa'] } } }), 'utf8');
+  const override = { id: 'trae', label: 'trae 覆盖', format: 'json', writeBack: true, paths: [overrideFile] };
+  const state = { ...cleanState, fingerprints: {}, lastSeen: {}, customSources: [override] };
+  const result = scanAll({ ...scanCtx, state });
+  const trae = result.sources.find((item) => item.id === 'trae');
+  assert.equal(result.sources.filter((item) => item.id === 'trae').length, 1, '同一 id 不再出现两行');
+  assert.equal(trae.file, overrideFile, '目标文件必须跟着覆盖路径走');
+  const item = result.servers.find((s) => s.key === serverKey('trae', 'zprobe'));
+  assert.equal(item.writeBack, true, '条目上的写回授权来自覆盖项');
+  const listed = listSources(state).find((item2) => item2.id === 'trae');
+  assert.equal(listed.custom, true, '清单里这一行标成自定义覆盖项');
+  assert.equal(listed.builtin, false);
+});
+
+test('坏源（路径是目录）只标自己出错，整个扫描不许炸', () => {
+  const state = { ...cleanState, fingerprints: {}, lastSeen: {}, customSources: [{ id: 'zz-bad', label: '坏源', format: 'json', writeBack: false, paths: [sandbox] }, probeSource] };
+  const result = scanAll({ ...scanCtx, state });
+  const bad = result.sources.find((item) => item.id === 'zz-bad');
+  assert.ok(String(bad.error ?? '').includes('读取异常'), `坏源应带异常标记：${bad.error}`);
+  assert.ok(findItem(result, probeKey), '其它源照常扫出来');
 });
 
 if (failures.length === 0) {
