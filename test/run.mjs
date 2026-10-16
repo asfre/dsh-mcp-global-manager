@@ -687,6 +687,25 @@ test('坏源（路径是目录）只标自己出错，整个扫描不许炸', ()
   assert.ok(findItem(result, probeKey), '其它源照常扫出来');
 });
 
+test('writeTomlDialect 挡结构注入：坏名字/坏 env 键被拒且原文一字不动', () => {
+  const base = '[mcp_servers.ok]\ncommand = "npx"\n';
+  const bad = writeTomlDialect(base, { action: 'upsert', name: 'x]\nfoo = 1\n[mcp_servers.evil', entry: { command: 'npx' } });
+  assert.ok(bad.error, '带换行方括号的名字必须被拒');
+  assert.equal(bad.text, base, '拒绝时原文一字不动');
+  const badEnv = writeTomlDialect(base, { action: 'upsert', name: 'ok2', entry: { command: 'npx', env: { 'A]" = 1\nx': 'v' } } });
+  assert.ok(badEnv.error && /env/.test(badEnv.error), `env 键名注入必须点名 env：${badEnv.error}`);
+  assert.equal(badEnv.text, base);
+});
+
+test('pushToSource 把 TOML 恶意名的拒绝向上传递，不静默吞掉', () => {
+  const file = join(sandbox, 'evil-inject.toml');
+  const original = '[mcp_servers.keep]\ncommand = "keep"\n';
+  writeFileSync(file, original, 'utf8');
+  const result = pushToSource({ file, format: 'toml', name: 'a\nb', server: { transport: 'stdio', command: 'npx' } });
+  assert.equal(result.ok, false, '必须报错而不是返回 changed:false 蒙混');
+  assert.equal(readFileSync(file, 'utf8'), original, '恶意名被拒：源文件一个字节没变');
+});
+
 if (failures.length === 0) {
   rmSync(sandbox, { recursive: true, force: true });
 } else {
