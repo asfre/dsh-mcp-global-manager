@@ -55,15 +55,17 @@ MCP 配置散在 Claude Code / Codex / VS Code / Cursor / Trae / Kiro / OpenCode
 用 DSH 自带的插件命令，`--profile` 换成你实际在用的 profile 名（`web` / `desktop` / `tui` …）：
 
 ```powershell
-# ① 包发布到 npm 之后（推荐）
-dsh plugin --profile web add dsh-mcp-global-manager
+# ① 从 GitHub 装（推荐，无需 npm 账号）
+dsh plugin --profile web add asfre/dsh-mcp-global-manager
 
-# ② 从源码装（开发态，无需 npm 账号）
+# ② 从源码装（开发态）
 dsh plugin --profile web add file:C:/Users/you/dsh-plugins/dsh-mcp-global-manager
 
-# ③ 或装 GitHub Release 上的 tarball
-dsh plugin --profile web add https://github.com/asfre/dsh-mcp-global-manager/releases/latest/download/dsh-mcp-global-manager.tgz
+# ③ 装 GitHub Release 上的预构建 tarball（需先发版，版本号钉死）
+dsh plugin --profile web add https://github.com/asfre/dsh-mcp-global-manager/releases/download/v0.1.1/dsh-mcp-global-manager-0.1.1.tgz
 ```
+
+> npm 尚未发布；发布后第 ① 步可改用 `dsh plugin --profile web add dsh-mcp-global-manager`（市场会额外显示下载量）。
 
 装完**彻底重启** DSH（托盘右键退出再打开——`Ctrl+R` 只重载前端，宿主进程里的 `lib/*.js` 还是旧的），侧栏「远程链接」正下方就会出现 **MCP全局管理**。
 
@@ -125,6 +127,10 @@ node tools/cold-start-check.mjs    # 冷启动演练：等价「重启后用户�
 ## 卸载
 
 从 profile 移除这条依赖（`dsh plugin remove` 或删 `dsh.profile.bundles` 里的条目），刷新界面即可。DSH 补丁里已生成的 `mcp-*` 行**不会**跟着消失——那是你的配置，不是插件的东西；需要的话在面板里逐条删。账本与备份在 `~/.dsh/mcp-global-manager/`，一并删除即彻底清理。
+
+## 更新日志 / Changelog
+
+每个版本的「更新了什么 + 适用 Harness 版本」以中英双语记录在 [CHANGELOG.md](./CHANGELOG.md)，同时也是 GitHub Release 的说明来源。
 
 ## License
 
