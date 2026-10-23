@@ -1,0 +1,42 @@
+# .github/workflows/release.yml
+# 触发：推送 v* tag（如 v0.2.0）。作用：跑测试 → 打包 tarball → 从 CHANGELOG 抽双语段落生成 GitHub Release。
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: 跑回归测试（门禁）
+        run: node test/run.mjs
+
+      - name: 打包插件 tarball（含 package.json / lib / cordis.patch.yml / icon.svg / README）
+        run: pnpm pack
+
+      - name: 从 CHANGELOG 抽取本版本双语说明
+        run: node scripts/extract-release-notes.mjs "${GITHUB_REF_NAME}" > release-notes.txt
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: '*.tgz'
+          body_path: release-notes.txt
