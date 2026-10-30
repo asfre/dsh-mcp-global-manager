@@ -109,7 +109,7 @@ dsh plugin --profile web add https://github.com/asfre/dsh-mcp-global-manager/rel
 - TOML 只处理 `[mcp_servers.x]` 一层；`.env` / `.http_headers` 子表写回时展平成 `env = { K = "V" }`。
 - 面板管的是**配置**，不代管 DSH 的 MCP 运行状态（启不启得来看 DSH 的 MCP 层）。
 - 补丁 `id` 命名空间全 profile 共享：停用/删除/改名三个操作都先确认补丁里存在这条受管服务器行，认不出主就 409/404 拒绝。服务名避开 `manager-plus` 一类与插件同名的前缀即可。
-- 兼容性：`@deepseek-ai/dsh` 的 `>=0.1.6-alpha.1 <0.2.0-0` 或 `>=0.2.0-rc.1 <0.3.0-0`（0.2.0 正式版前的过渡版本不支持）。
+- 兼容性：`@deepseek-ai/dsh` 的 `>=0.1.6-alpha.1 <0.2.0-0` 或 `>=0.2.0-rc.1 <0.3.0-0`（0.2.0 正式版前的过渡版本不支持）。**已显式声明 `engines.dsh`**（DSH 0.2.1+ 优先按此字段判定第三方插件兼容性，未声明会判为兼容性未知），覆盖 0.2.0-rc.x、0.2.1-rc.x（含最新 `0.2.1-rc.5`）与 `0.2.2-alpha.x`。注意：DSH 0.2.2+ 要求宿主 Node.js ≥ 24.9。
 
 ## 开发与自测（零写入）
 
