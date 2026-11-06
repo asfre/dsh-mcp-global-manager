@@ -1,6 +1,6 @@
 {
   "name": "dsh-mcp-global-manager",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "MCP 全局管理：扫描已知工具的 MCP 配置（28 个内置源与自定义源），一键刷新同步差异，双向导入/写回，并在 DSH 侧栏直接增删改 MCP 服务器。",
   "keywords": [
     "dsh",
@@ -35,7 +35,10 @@
     "lib",
     "cordis.patch.yml",
     "icon.svg",
-    "README.md"
+    "README.md",
+    "README.en.md",
+    "CHANGELOG.md",
+    "assets/screenshot-*.png"
   ],
   "scripts": {
     "scan": "node tools/cli-scan.mjs",
@@ -47,7 +50,7 @@
     "js-yaml": "^4.1.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh": ">=0.1.6-alpha.1 <0.2.0-0 || >=0.2.0-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh": ">=0.1.0-rc.6 <0.3.0-0",
     "@deepseek-ai/dsh-client-locale": "^0.2.0-rc.2",
     "@deepseek-ai/dsh-client-ui-slots": "^0.2.0-rc.2",
     "@deepseek-ai/dsh-host-webserver": "^0.2.0-rc.2"
@@ -67,7 +70,7 @@
     }
   },
   "engines": {
-    "dsh": ">=0.1.6-alpha.1 <0.2.0-0 || >=0.2.0-rc.1 <0.3.0-0"
+    "dsh": ">=0.1.0-rc.6 <0.3.0-0"
   },
   "dsh": {
     "bundle": {
