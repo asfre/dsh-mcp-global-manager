@@ -9,7 +9,7 @@ importers:
   .:
     dependencies:
       '@deepseek-ai/dsh':
-        specifier: '>=0.1.6-alpha.1 <0.2.0-0 || >=0.2.0-rc.1 <0.3.0-0'
+        specifier: '>=0.1.0-rc.6 <0.3.0-0'
         version: 0.2.0-rc.2(nje5wbquidalijqtxd3e7bkshy)
       '@deepseek-ai/dsh-client-locale':
         specifier: ^0.2.0-rc.2
