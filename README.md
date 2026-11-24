@@ -64,7 +64,7 @@ dsh plugin --profile web add asfre/dsh-mcp-global-manager
 dsh plugin --profile web add file:C:/Users/you/dsh-plugins/dsh-mcp-global-manager
 
 # ③ 装 GitHub Release 上的预构建 tarball（需先发版，版本号钉死）
-dsh plugin --profile web add https://github.com/asfre/dsh-mcp-global-manager/releases/download/v0.2.0/dsh-mcp-global-manager-0.2.0.tgz
+dsh plugin --profile web add https://github.com/asfre/dsh-mcp-global-manager/releases/download/v0.2.1/dsh-mcp-global-manager-0.2.1.tgz
 ```
 
 > npm 尚未发布；发布后第 ① 步可改用 `dsh plugin --profile web add dsh-mcp-global-manager`（市场会额外显示下载量）。

@@ -64,7 +64,7 @@ dsh plugin --profile web add asfre/dsh-mcp-global-manager
 dsh plugin --profile web add file:C:/Users/you/dsh-plugins/dsh-mcp-global-manager
 
 # ③ From a prebuilt tarball on GitHub Releases (pin the version)
-dsh plugin --profile web add https://github.com/asfre/dsh-mcp-global-manager/releases/download/v0.2.0/dsh-mcp-global-manager-0.2.0.tgz
+dsh plugin --profile web add https://github.com/asfre/dsh-mcp-global-manager/releases/download/v0.2.1/dsh-mcp-global-manager-0.2.1.tgz
 ```
 
 > Not yet published to npm; once published, step ① can become `dsh plugin --profile web add dsh-mcp-global-manager` (the market will additionally show download counts).
