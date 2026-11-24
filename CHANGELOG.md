@@ -5,6 +5,21 @@
 
 ---
 
+## v0.2.1 — 2026-11-24
+**适用 Harness 版本 / Compatible harness:** `>= 0.1.0-rc.6 <0.3.0-0`
+**类型 / Type:** 兼容性声明与文案一致性 / Compatibility declarations & wording
+
+### 更新内容 / What's changed
+1. 兼容：移除 `dsh-client-locale` / `dsh-client-ui-slots` / `dsh-host-webserver` 三条可选 peer 声明。它们在 npm/pnpm 默认 semver 模式下不匹配 `0.2.2-rc.x` / `0.2.3-alpha.x` 这类预发布版本，安装时会刷 unmet peer 警告；而插件运行时并不 `import` 这些包（宿主经 `__ModuleLoader__` / `ctx.slots` 注入），声明本身没有约束力。兼容性统一以 `engines.dsh` 为准，只保留 `@deepseek-ai/dsh` 一条可选 peer — Compat: removed the three optional peers (`dsh-client-locale`, `dsh-client-ui-slots`, `dsh-host-webserver`). Under npm/pnpm's default semver mode they never matched pre-release builds such as `0.2.2-rc.x` / `0.2.3-alpha.x`, so installs printed unmet-peer warnings even though the plugin never imports those packages (the host provides them through `__ModuleLoader__` / `ctx.slots`). `engines.dsh` is now the single compatibility source, with only the optional `@deepseek-ai/dsh` peer left.
+2. 文档：兼容矩阵补到 `0.2.2-rc.5` 与 `0.2.3-alpha.x`，并写明 DSH 用 `semver.satisfies(..., { includePrerelease: true })` 判定 `engines.dsh`，与 npm/pnpm 默认模式不同 — Docs: extended the compatibility matrix through `0.2.2-rc.5` and `0.2.3-alpha.x`, and documented that DSH judges `engines.dsh` with `includePrerelease: true`, unlike npm/pnpm's default peer check.
+3. 文案：`package.json` 的 `description` 由「双向导入/写回」统一为「导入、同步回」，与界面、README、市场条目保持一致 — Wording: `package.json`'s `description` now says "import / sync back" instead of "import / write back", matching the UI, both READMEs and the market entry.
+
+### 升级提示 / Upgrade notes
+- 纯声明与文档变更，`lib/` 一行未改，行为与 0.2.0 完全一致 — Declarations and docs only; not a single line of `lib/` changed, so runtime behavior is identical to 0.2.0.
+- 已装 0.2.0 的 profile 重新执行一次安装即可更新本地清单（`description` / peers），不需要因此重启 DSH — Re-running the install refreshes the local manifest for an existing 0.2.0 profile; no DSH restart is needed for this change alone.
+
+---
+
 ## v0.2.0 — 2026-11-05
 **适用 Harness 版本 / Compatible harness:** `>= 0.1.0-rc.6 <0.3.0-0`
 **类型 / Type:** 兼容性加固 / Compatibility hardening

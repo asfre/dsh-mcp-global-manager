@@ -128,12 +128,15 @@ dsh plugin --profile web add https://github.com/asfre/dsh-mcp-global-manager/rel
 
 `package.json` 已显式声明 `engines.dsh: ">=0.1.0-rc.6 <0.3.0-0"`，并采用**特性探测（feature-detect）**而非版本嗅探：缺 `webServer`、缺 `ctx.slots`、缺 `locale` 时分别优雅降级，不会让插件或宿主崩溃。
 
+> 判定口径：DSH 用 `semver.satisfies(version, range, { includePrerelease: true })` 校验 `engines.dsh`，因此 `-rc.x` / `-alpha.x` 这类预发布版本也在覆盖范围内。这与 npm / pnpm 默认的 peer 校验模式不同——默认模式不把预发布版本算进普通 range，所以本插件**不再依赖 peer 声明**承载兼容性，只保留 `@deepseek-ai/dsh` 一条可选 peer，兼容性以 `engines.dsh` 为准。
+
 | DSH 版本 | 支持程度 | 侧栏入口行为 | 说明 |
 | --- | --- | --- | --- |
 | `< 0.1.0-rc.6` | ❌ 不支持 | 插件不注册入口 | 此类旧版本多数插件自禁用；面板显示「环境不可用」横幅，不静默白屏 |
 | `0.1.0-rc.6` ~ `0.1.4` | ⚠️ 受限 | 无标准侧栏入口 | 早期 `ctx.slots` 能力缺失，面板无法挂载；建议升级 DSH |
 | `0.1.5` ~ `0.2.0-rc.x` | ✅ 支持 | 标准侧栏条目（图标进左侧导航） | 推荐区间 |
-| `0.2.1-rc.x` ~ `0.2.2-rc.1` | ✅ 支持 | Plugins 页签入口（紧邻 Installed） | 当前最佳实践 |
+| `0.2.1-rc.x` ~ `0.2.2-rc.5` | ✅ 支持 | Plugins 页签入口（紧邻 Installed） | 当前最佳实践 |
+| `0.2.3-alpha.x` | ✅ 支持 | Plugins 页签入口（同 0.2.2） | 已在 `0.2.3-alpha.2` 实测：`webServer.register` 签名、`ctx.slots` / `sidebar.panellist`、`ctx.locale` 均未变；冷启动演练、58 项单测、客户端冒烟全部通过 |
 | `≥ 0.3.0`（未发布） | ❓ 待验证 | — | `engines.dsh` 上限 `<0.3.0-0`；新大版本发布后需重新评估并放宽上限 |
 
 **环境要求与降级行为：**

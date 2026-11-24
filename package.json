@@ -1,7 +1,7 @@
 {
   "name": "dsh-mcp-global-manager",
-  "version": "0.2.0",
-  "description": "MCP 全局管理：扫描已知工具的 MCP 配置（28 个内置源与自定义源），一键刷新同步差异，双向导入/写回，并在 DSH 侧栏直接增删改 MCP 服务器。",
+  "version": "0.2.1",
+  "description": "MCP 全局管理：扫描 28 个内置源与自定义源的 MCP 配置，把差异同步进 DSH，并在侧栏直接导入、同步回或增删改 MCP 服务器。",
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -50,22 +50,10 @@
     "js-yaml": "^4.1.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh": ">=0.1.0-rc.6 <0.3.0-0",
-    "@deepseek-ai/dsh-client-locale": "^0.2.0-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.2.0-rc.2",
-    "@deepseek-ai/dsh-host-webserver": "^0.2.0-rc.2"
+    "@deepseek-ai/dsh": ">=0.1.0-rc.6 <0.3.0-0"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-client-locale": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-client-ui-slots": {
-      "optional": true
-    },
-    "@deepseek-ai/dsh-host-webserver": {
       "optional": true
     }
   },

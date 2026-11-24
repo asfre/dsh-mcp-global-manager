@@ -118,12 +118,15 @@ For a new tool beyond the built-in list: add a custom source in the panel's "sca
 
 `package.json` declares `engines.dsh: ">=0.1.0-rc.6 <0.3.0-0"` and uses **feature-detection** rather than version sniffing: missing `webServer` / `ctx.slots` / `locale` each degrade gracefully without crashing the plugin or the host.
 
+> How DSH judges this: it calls `semver.satisfies(version, range, { includePrerelease: true })` on `engines.dsh`, so pre-release builds (`-rc.x` / `-alpha.x`) are covered. npm/pnpm's default peer check does **not** count pre-releases into a normal range, which is why this plugin no longer relies on peer declarations for compatibility — only the optional `@deepseek-ai/dsh` peer remains, and `engines.dsh` is the single source of truth.
+
 | DSH version | Support | Sidebar entry behavior | Notes |
 | --- | --- | --- | --- |
 | `< 0.1.0-rc.6` | ❌ unsupported | entry not registered | most plugins self-disable on such old versions; panel shows an "environment unavailable" banner, not a blank screen |
 | `0.1.0-rc.6` ~ `0.1.4` | ⚠️ limited | no standard sidebar entry | early `ctx.slots` missing; panel can't mount — upgrade DSH |
 | `0.1.5` ~ `0.2.0-rc.x` | ✅ supported | standard sidebar entry (icon in left nav) | recommended range |
-| `0.2.1-rc.x` ~ `0.2.2-rc.1` | ✅ supported | Plugins tab entry (next to Installed) | current best practice |
+| `0.2.1-rc.x` ~ `0.2.2-rc.5` | ✅ supported | Plugins tab entry (next to Installed) | current best practice |
+| `0.2.3-alpha.x` | ✅ supported | Plugins tab entry (same as 0.2.2) | verified on `0.2.3-alpha.2`: `webServer.register` signature, `ctx.slots` / `sidebar.panellist` and `ctx.locale` unchanged; cold-start drill, 58 unit tests and the client smoke test all pass |
 | `≥ 0.3.0` (unreleased) | ❓ to be verified | — | `engines.dsh` ceiling is `<0.3.0-0`; re-evaluate and raise the ceiling when the new major ships |
 
 **Environment requirements & degradation:**
