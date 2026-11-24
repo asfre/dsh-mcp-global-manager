@@ -11,15 +11,6 @@ importers:
       '@deepseek-ai/dsh':
         specifier: '>=0.1.0-rc.6 <0.3.0-0'
         version: 0.2.0-rc.2(nje5wbquidalijqtxd3e7bkshy)
-      '@deepseek-ai/dsh-client-locale':
-        specifier: ^0.2.0-rc.2
-        version: 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
-      '@deepseek-ai/dsh-client-ui-slots':
-        specifier: ^0.2.0-rc.2
-        version: 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
-      '@deepseek-ai/dsh-host-webserver':
-        specifier: ^0.2.0-rc.2
-        version: 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
       js-yaml:
         specifier: ^4.1.0
         version: 4.3.2
